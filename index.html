@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Pencatatan Toko</title>
+<!-- Terapkan tema tersimpan SEBELUM render, supaya tidak ada kedipan (flash) warna salah -->
+<script>
+  (function () {
+    const saved = localStorage.getItem('toko-theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (saved === 'dark' || (!saved && prefersDark)) {
+      document.documentElement.classList.add('dark');
+    }
+  })();
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<!-- ===================== AUTH SCREEN (LOGIN / SIGNUP) ===================== -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="flex items-center gap-2 justify-center mb-5">
+      <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">T</div>
+      <span class="font-bold text-xl">Toko App</span>
+    </div>
+
+    <!-- Step 1: input email -->
+    <div id="auth-step-email">
+      <p class="text-sm text-center text-slate-500 mb-4">Masuk atau daftar dengan email untuk mulai mencatat</p>
+      <label class="text-sm font-medium block mb-1">Email</label>
+      <input id="auth-email" type="email" class="input w-full mb-3" placeholder="nama@email.com" autocomplete="email" />
+      <button id="auth-btn-lanjut" class="btn-primary w-full py-3">Lanjut</button>
+    </div>
+
+    <!-- Step 2a: SIGN IN (email sudah terdaftar) -->
+    <div id="auth-step-signin" class="hidden">
+      <button class="auth-back-btn" id="auth-back-1">&larr; Ganti email</button>
+      <p class="text-sm text-slate-500 mb-1">Masuk sebagai</p>
+      <p class="font-semibold mb-4" id="auth-signin-email"></p>
+      <label class="text-sm font-medium block mb-1">Password</label>
+      <input id="auth-signin-password" type="password" class="input w-full mb-3" placeholder="Masukkan password" autocomplete="current-password" />
+      <button id="auth-btn-signin" class="btn-primary w-full py-3">Masuk</button>
+    </div>
+
+    <!-- Step 2b: SIGN UP (email baru) -->
+    <div id="auth-step-signup" class="hidden">
+      <button class="auth-back-btn" id="auth-back-2">&larr; Ganti email</button>
+      <p class="text-sm text-slate-500 mb-1">Email baru, lengkapi data untuk daftar</p>
+      <p class="font-semibold mb-4" id="auth-signup-email"></p>
+      <label class="text-sm font-medium block mb-1">Nama</label>
+      <input id="auth-signup-nama" type="text" class="input w-full mb-3" placeholder="Nama kamu" autocomplete="name" />
+      <label class="text-sm font-medium block mb-1">Buat Password</label>
+      <input id="auth-signup-password" type="password" class="input w-full mb-3" placeholder="Minimal 4 karakter" autocomplete="new-password" />
+      <button id="auth-btn-signup" class="btn-primary w-full py-3">Daftar & Masuk</button>
+    </div>
+
+    <p id="auth-error" class="text-red-500 text-sm text-center mt-3 hidden"></p>
+  </div>
+</div>
+
+<!-- ===================== APLIKASI UTAMA (tersembunyi sebelum login) ===================== -->
+<div id="app-container" class="hidden">
+
+<!-- ===================== HEADER + NAV ===================== -->
+<header class="app-header sticky top-0 z-40 border-b">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold">T</div>
+      <span class="font-bold text-lg">Toko App</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="config-status" class="text-xs text-slate-400"></div>
+      <div class="text-right leading-tight">
+        <p id="current-user-name" class="text-sm font-semibold"></p>
+        <button id="btn-logout" class="text-xs text-red-400 hover:text-red-500">Logout</button>
+      </div>
+      <button id="theme-toggle" class="theme-toggle-btn" title="Ganti tema">
+        <span id="theme-icon">🌙</span>
+      </button>
+    </div>
+  </div>
+  <nav class="max-w-5xl mx-auto px-2 flex gap-1 overflow-x-auto pb-1">
+    <button data-tab="dashboard" class="tab-btn active">📊 Dashboard</button>
+    <button data-tab="riwayat" class="tab-btn">📖 Lihat Pencatatan</button>
+    <button data-tab="catat" class="tab-btn">🛒 Catat Penjualan</button>
+    <button data-tab="catat-pengeluaran" class="tab-btn">💸 Catat Pengeluaran</button>
+    <button data-tab="lihat-pengeluaran" class="tab-btn">📉 Lihat Pengeluaran</button>
+    <button data-tab="barang" class="tab-btn">🏷️ Daftar Harga</button>
+  </nav>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-4 pb-24">
+
+  <!-- ===================== TAB: DASHBOARD ===================== -->
+  <section id="tab-dashboard" class="tab-content">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div class="card">
+        <p class="card-label">Bruto Hari Ini</p>
+        <p id="dash-bruto" class="card-value">Rp 0</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Perubahan vs Kemarin</p>
+        <p id="dash-persen" class="card-value">0%</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Bruto Bulan Ini</p>
+        <p id="dash-bruto-bulan" class="card-value">Rp 0</p>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="flex items-center justify-between mb-1">
+        <p class="font-semibold">💰 Netto Bulan Ini <span id="dash-bulan-label" class="text-xs text-slate-400 font-normal"></span></p>
+      </div>
+      <div id="dash-netto-container">
+        <p class="card-value">Rp 0</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
+        <div>
+          <p class="text-xs text-slate-400">Bruto Bulan Ini</p>
+          <p id="dash-bulan-bruto" class="font-semibold">Rp 0</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">Pengeluaran Bulan Ini</p>
+          <p id="dash-bulan-pengeluaran" class="font-semibold">Rp 0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <p class="font-semibold mb-2">🛒 Daftar Pembelian</p>
+      <div id="pembelian-list" class="space-y-2 text-sm mb-3">Memuat...</div>
+      <div class="border-t border-slate-100 pt-3 space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+          <input id="pembelian-nama" class="input" placeholder="Nama barang" />
+          <input id="pembelian-jumlah" type="number" min="1" class="input" placeholder="Jumlah" />
+        </div>
+        <input id="pembelian-harga-estimasi" type="number" min="0" class="input w-full" placeholder="Harga estimasi (opsional)" />
+        <button id="btn-tambah-pembelian" class="btn-secondary w-full">+ Tambah ke Daftar Pembelian</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="font-semibold mb-2">⚠️ Stok Menipis</p>
+      <div id="dash-stok-list" class="space-y-2 text-sm text-slate-600">Memuat...</div>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: LIHAT PENCATATAN ===================== -->
+  <section id="tab-riwayat" class="tab-content hidden">
+    <div class="card mb-4 flex items-center gap-3 flex-wrap">
+      <label class="text-sm font-medium">Pilih Tanggal:</label>
+      <input type="date" id="riwayat-tanggal" class="input" />
+      <button id="riwayat-load" class="btn-primary">Tampilkan</button>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div class="card"><p class="card-label">Total Bruto</p><p id="riwayat-bruto" class="card-value">Rp 0</p></div>
+      <div class="card">
+        <p class="card-label">💵 Total Cash</p>
+        <p id="riwayat-cash" class="card-value text-emerald-600">Rp 0</p>
+      </div>
+      <div class="card">
+        <p class="card-label">📱 Total Gopay</p>
+        <p id="riwayat-gopay" class="card-value text-blue-600">Rp 0</p>
+      </div>
+      <div class="card"><p class="card-label">Jumlah Transaksi</p><p id="riwayat-jumlah" class="card-value">0</p></div>
+    </div>
+    <div class="card overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-400 border-b border-slate-100">
+            <th class="py-2 pr-2">Jam</th>
+            <th class="py-2 pr-2">Barang</th>
+            <th class="py-2 pr-2">Jml</th>
+            <th class="py-2 pr-2">Harga Satuan</th>
+            <th class="py-2 pr-2">Total</th>
+            <th class="py-2 pr-2">Bayar</th>
+            <th class="py-2 pr-2">Dicatat Oleh</th>
+          </tr>
+        </thead>
+        <tbody id="riwayat-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: CATAT PENJUALAN ===================== -->
+  <section id="tab-catat" class="tab-content hidden">
+    <div class="card mb-4">
+      <p class="font-semibold mb-2">Cari Barang</p>
+      <div class="relative">
+        <div class="flex gap-2">
+          <input id="search-barang" type="text" placeholder="Ketik nama barang..." class="input flex-1" autocomplete="off" />
+          <span id="search-spinner" class="spinner spinner-muted hidden self-center"></span>
+          <button id="btn-mic" class="btn-secondary" title="Bicara">🎤</button>
+        </div>
+        <div id="autocomplete-list" class="autocomplete-box hidden"></div>
+      </div>
+      <div class="mt-2">
+        <button id="btn-jasa" class="text-sm text-indigo-600 underline">+ Tambah item Jasa (print/fotokopi/dll)</button>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <p class="font-semibold mb-2">Keranjang</p>
+      <div id="cart-list" class="space-y-2 text-sm text-slate-500">Belum ada barang.</div>
+      <div class="border-t border-slate-100 mt-3 pt-3 flex justify-between font-semibold">
+        <span>Subtotal</span><span id="cart-subtotal">Rp 0</span>
+      </div>
+    </div>
+
+    <div class="card mb-4 space-y-3">
+      <div>
+        <label class="text-sm font-medium block mb-1">Diskon (%)</label>
+        <input id="input-diskon" type="number" min="0" max="100" class="input w-full" placeholder="0" />
+      </div>
+      <div>
+        <label class="text-sm font-medium block mb-1">Total Akhir (bisa diedit manual)</label>
+        <input id="input-total-final" type="number" class="input w-full" />
+      </div>
+      <div>
+        <label class="text-sm font-medium block mb-2">Metode Pembayaran</label>
+        <div class="metode-pill-group" id="metode-pill-group">
+          <button type="button" class="metode-pill active" data-metode="Cash">💵 Cash</button>
+          <button type="button" class="metode-pill" data-metode="Gopay">📱 Gopay</button>
+          <button type="button" class="metode-pill" data-metode="Campur">🔀 Campur</button>
+        </div>
+        <input type="hidden" id="input-metode" value="Cash" />
+      </div>
+      <div id="campur-fields" class="hidden grid grid-cols-2 gap-2">
+        <input id="input-cash" type="number" placeholder="Nominal Cash" class="input" />
+        <input id="input-gopay" type="number" placeholder="Nominal Gopay" class="input" />
+      </div>
+      <div id="cash-kembalian-box" class="bg-indigo-50 rounded-xl p-3">
+        <label class="text-sm font-medium block mb-1">Uang Diterima (opsional)</label>
+        <input id="input-uang-diterima" type="number" min="0" class="input w-full mb-2" placeholder="Masukkan nominal uang dari pembeli" />
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Kembalian</span>
+          <span id="kembalian-value" class="font-semibold">Rp 0</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-simpan-transaksi" class="btn-primary w-full py-3 text-base">💾 Simpan Transaksi</button>
+  </section>
+
+  <!-- ===================== TAB: CATAT PENGELUARAN ===================== -->
+  <section id="tab-catat-pengeluaran" class="tab-content hidden">
+    <div class="card space-y-3">
+      <p class="font-semibold mb-1">💸 Catat Pengeluaran Baru</p>
+      <div>
+        <label class="text-sm font-medium block mb-1">Jenis Pengeluaran</label>
+        <input id="pengeluaran-jenis" list="jenis-pengeluaran-list" class="input w-full" placeholder="Belanja stok, listrik, gaji, dll" />
+        <datalist id="jenis-pengeluaran-list">
+          <option value="Belanja Stok Barang">
+          <option value="Listrik">
+          <option value="Air">
+          <option value="Sewa Tempat">
+          <option value="Gaji Karyawan">
+          <option value="Transportasi">
+          <option value="Perawatan/Perbaikan">
+          <option value="Lain-lain">
+        </datalist>
+      </div>
+      <div>
+        <label class="text-sm font-medium block mb-1">Nominal</label>
+        <input id="pengeluaran-nominal" type="number" min="0" class="input w-full" placeholder="0" />
+      </div>
+      <div>
+        <label class="text-sm font-medium block mb-1">Catatan (opsional)</label>
+        <input id="pengeluaran-catatan" class="input w-full" placeholder="Catatan tambahan..." />
+      </div>
+      <button id="btn-simpan-pengeluaran" class="btn-primary w-full py-3 text-base">💾 Simpan Pengeluaran</button>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: LIHAT PENGELUARAN ===================== -->
+  <section id="tab-lihat-pengeluaran" class="tab-content hidden">
+    <div class="card mb-4 flex items-center gap-3 flex-wrap">
+      <label class="text-sm font-medium">Pilih Bulan:</label>
+      <input type="month" id="pengeluaran-bulan-input" class="input" />
+      <button id="pengeluaran-load" class="btn-primary">Tampilkan</button>
+    </div>
+    <div class="card mb-4">
+      <p class="card-label">Total Pengeluaran Bulan Ini</p>
+      <p id="pengeluaran-total" class="card-value">Rp 0</p>
+    </div>
+    <div class="card overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-400 border-b border-slate-100">
+            <th class="py-2 pr-2">Tanggal</th>
+            <th class="py-2 pr-2">Jam</th>
+            <th class="py-2 pr-2">Jenis Pengeluaran</th>
+            <th class="py-2 pr-2">Nominal</th>
+            <th class="py-2 pr-2">Catatan</th>
+            <th class="py-2 pr-2">Dicatat Oleh</th>
+            <th class="py-2 pr-2"></th>
+          </tr>
+        </thead>
+        <tbody id="pengeluaran-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: DAFTAR HARGA ===================== -->
+  <section id="tab-barang" class="tab-content hidden">
+    <div class="card mb-4">
+      <div class="flex gap-2 flex-wrap items-center">
+        <input id="barang-search" type="text" placeholder="Cari nama barang..." class="input flex-1" />
+        <select id="barang-sort" class="input">
+          <option value="tanggal_desc">Terbaru</option>
+          <option value="tanggal_asc">Terlama</option>
+          <option value="harga_asc">Harga Termurah</option>
+          <option value="harga_desc">Harga Termahal</option>
+          <option value="nama_asc">Nama A-Z</option>
+        </select>
+        <button id="btn-tambah-barang" class="btn-primary">+ Barang Baru</button>
+      </div>
+    </div>
+    <div id="barang-list" class="space-y-2"></div>
+  </section>
+
+</main>
+
+</div> <!-- /#app-container -->
+
+<!-- ===================== MODAL: TAMBAH/EDIT BARANG ===================== -->
+<div id="modal-barang" class="modal hidden">
+  <div class="modal-box">
+    <p class="font-semibold text-lg mb-3" id="modal-barang-title">Tambah Barang</p>
+    <input type="hidden" id="mb-id" />
+    <div class="space-y-3">
+      <div>
+        <label class="text-sm font-medium block mb-1">Nama Barang</label>
+        <input id="mb-nama" class="input w-full" />
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-sm font-medium block mb-1">Harga Modal</label>
+          <input id="mb-modal" type="number" class="input w-full" />
+        </div>
+        <div>
+          <label class="text-sm font-medium block mb-1">Harga Jual</label>
+          <input id="mb-jual" type="number" class="input w-full" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-sm font-medium block mb-1">Harga Pack (opsional)</label>
+          <input id="mb-pack" type="number" class="input w-full" />
+        </div>
+        <div>
+          <label class="text-sm font-medium block mb-1">Isi per Pack (opsional)</label>
+          <input id="mb-isi-pack" type="number" min="1" class="input w-full" placeholder="misal: 12" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-sm font-medium block mb-1">Stok</label>
+          <input id="mb-stok" type="number" class="input w-full" />
+        </div>
+        <div>
+          <label class="text-sm font-medium block mb-1">Stok Minimum</label>
+          <input id="mb-stok-min" type="number" class="input w-full" />
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button id="mb-cancel" class="btn-secondary flex-1">Batal</button>
+      <button id="mb-save" class="btn-primary flex-1">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: JASA ===================== -->
+<div id="modal-jasa" class="modal hidden">
+  <div class="modal-box">
+    <p class="font-semibold text-lg mb-3">Tambah Item Jasa</p>
+    <div class="space-y-3">
+      <div>
+        <label class="text-sm font-medium block mb-1">Nama Jasa</label>
+        <input id="jasa-nama" class="input w-full" placeholder="Print, Fotokopi, Laminating, dll" />
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-sm font-medium block mb-1">Jumlah</label>
+          <input id="jasa-jumlah" type="number" class="input w-full" value="1" />
+        </div>
+        <div>
+          <label class="text-sm font-medium block mb-1">Harga Satuan</label>
+          <input id="jasa-harga" type="number" class="input w-full" />
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button id="jasa-cancel" class="btn-secondary flex-1">Batal</button>
+      <button id="jasa-add" class="btn-primary flex-1">Tambahkan</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="assets/config.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
